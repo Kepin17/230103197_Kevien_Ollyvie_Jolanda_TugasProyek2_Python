@@ -102,6 +102,53 @@ def save_mahasiswa_to_csv(nim, nama, hadir_persen, att_path="data/attendance.csv
     writer.writeheader()
     writer.writerows(existing_data)
 
+def update_attendance_to_csv(nim, hadir_persen, att_path="data/attendance.csv"):
+  """Update kehadiran mahasiswa di file CSV attendance.
+  Mengkonversi persentase kehadiran menjadi data per minggu.
+  """
+  p = Path(att_path)
+  
+  if not p.exists() or p.stat().st_size == 0:
+    print("File attendance.csv tidak ditemukan atau kosong.")
+    return False
+  
+  # Baca data yang sudah ada
+  existing_data = []
+  with p.open('r', encoding='utf-8') as f:
+    reader = csv.DictReader(f)
+    fieldnames = reader.fieldnames
+    existing_data = list(reader)
+  
+  # Cari mahasiswa berdasarkan NIM
+  nim_found = False
+  for row in existing_data:
+    if row['nim'] == nim:
+      nim_found = True
+      # Hitung jumlah minggu yang hadir berdasarkan persentase
+      total_weeks = len([f for f in fieldnames if f.startswith('week')])
+      weeks_present = round(hadir_persen / 100 * total_weeks)
+      
+      # Update week data
+      week_count = 0
+      for field in fieldnames:
+        if field.startswith('week'):
+          # Set 1 untuk minggu yang hadir, 0 untuk yang tidak
+          row[field] = '1' if week_count < weeks_present else '0'
+          week_count += 1
+      break
+  
+  if not nim_found:
+    print(f"NIM {nim} tidak ditemukan di file attendance.csv")
+    return False
+  
+  # Tulis kembali ke file
+  with p.open('w', encoding='utf-8', newline='') as f:
+    writer = csv.DictWriter(f, fieldnames=fieldnames)
+    writer.writeheader()
+    writer.writerows(existing_data)
+  
+  return True
+
 def save_nilai_to_csv(nim, quiz=0, tugas=0, uts=0, uas=0, grd_path="data/grades.csv"):
   """Simpan nilai mahasiswa ke file CSV grades."""
   p = Path(grd_path)
@@ -180,7 +227,6 @@ def menu():
       m = mhs(nama, nim)
       m.hadir_persen = hadir
       r.tambah_mahasiswa(m)
-      r.set_hadir(nim, hadir)
       
       # Set nilai mahasiswa
       r.set_penilaian(nim, quiz, tugas, uts, uas)
@@ -193,22 +239,35 @@ def menu():
     elif pilihan == '3':
       nim = input("NIM mahasiswa: ")
       hadir = int(input("Kehadiran baru (%): "))
-      r.set_hadir(nim, hadir)
-      print("Kehadiran berhasil diubah.")
+      try:
+        r.set_hadir(nim, hadir)
+        
+        # Simpan ke CSV
+        if update_attendance_to_csv(nim, hadir):
+          print("Kehadiran berhasil diubah dan disimpan ke CSV.")
+        else:
+          print("Kehadiran berhasil diubah dalam sistem, tapi gagal menyimpan ke CSV.")
+      except ValueError as e:
+        print(f"Error: {e}")
+        print("Pastikan NIM sudah terdaftar dalam sistem.")
     elif pilihan == '4':
       nim = input("NIM mahasiswa: ")
       quiz = float(input("Nilai Quiz: "))
       tugas = float(input("Nilai Tugas: "))
       uts = float(input("Nilai UTS: "))
       uas = float(input("Nilai UAS: "))
-      # Menggunakan import nilai untuk membuat objek Penilaian
-      penilaian_obj = nilai(quiz, tugas, uts, uas)
-      r.set_penilaian(nim, quiz, tugas, uts, uas)
-      
-      # Simpan ke CSV
-      save_nilai_to_csv(nim, quiz, tugas, uts, uas)
-      
-      print("Nilai berhasil diubah dan disimpan ke CSV.")
+      try:
+        # Menggunakan import nilai untuk membuat objek Penilaian
+        penilaian_obj = nilai(quiz, tugas, uts, uas)
+        r.set_penilaian(nim, quiz, tugas, uts, uas)
+        
+        # Simpan ke CSV
+        save_nilai_to_csv(nim, quiz, tugas, uts, uas)
+        
+        print("Nilai berhasil diubah dan disimpan ke CSV.")
+      except ValueError as e:
+        print(f"Error: {e}")
+        print("Pastikan NIM sudah terdaftar dalam sistem.")
     elif pilihan == '5':
       rows = r.rekap()
       tampilkan_rekap(rows)
