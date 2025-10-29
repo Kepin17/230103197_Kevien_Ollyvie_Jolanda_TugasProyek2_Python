@@ -1,0 +1,12 @@
+# Student Performance Tracker - Python Dependencies
+# No external dependencies required
+# This project uses only Python standard library
+
+# Python >= 3.7 required for:
+# - pathlib
+# - csv
+# - typing features
+
+# For development/testing (optional):
+# pytest>=7.0.0
+# pylint>=2.0.0
